@@ -1,0 +1,168 @@
+{
+  "top1": 54.0,
+  "macro_f1": 47.47,
+  "n": 200,
+  "head_top1": 55.67,
+  "head_top5": 73.2,
+  "head_macro_f1": 52.47,
+  "mid_top1": 52.43,
+  "mid_top5": 61.17,
+  "mid_macro_f1": 49.03,
+  "tail_top1": 0.0,
+  "tail_top5": 0.0,
+  "tail_macro_f1": 0.0,
+  "top_confusions": [
+    {
+      "true": 90,
+      "pred": 100,
+      "count": 1
+    },
+    {
+      "true": 189,
+      "pred": 109,
+      "count": 1
+    },
+    {
+      "true": 53,
+      "pred": 15,
+      "count": 1
+    },
+    {
+      "true": 58,
+      "pred": 59,
+      "count": 1
+    },
+    {
+      "true": 59,
+      "pred": 58,
+      "count": 1
+    },
+    {
+      "true": 64,
+      "pred": 33,
+      "count": 1
+    },
+    {
+      "true": 68,
+      "pred": 66,
+      "count": 1
+    },
+    {
+      "true": 73,
+      "pred": 116,
+      "count": 1
+    },
+    {
+      "true": 77,
+      "pred": 97,
+      "count": 1
+    },
+    {
+      "true": 79,
+      "pred": 75,
+      "count": 1
+    },
+    {
+      "true": 80,
+      "pred": 81,
+      "count": 1
+    },
+    {
+      "true": 82,
+      "pred": 158,
+      "count": 1
+    },
+    {
+      "true": 87,
+      "pred": 122,
+      "count": 1
+    },
+    {
+      "true": 95,
+      "pred": 96,
+      "count": 1
+    },
+    {
+      "true": 96,
+      "pred": 93,
+      "count": 1
+    },
+    {
+      "true": 99,
+      "pred": 93,
+      "count": 1
+    },
+    {
+      "true": 100,
+      "pred": 157,
+      "count": 1
+    },
+    {
+      "true": 101,
+      "pred": 157,
+      "count": 1
+    },
+    {
+      "true": 102,
+      "pred": 36,
+      "count": 1
+    },
+    {
+      "true": 106,
+      "pred": 66,
+      "count": 1
+    }
+  ],
+  "top_confusions_named": [
+    {
+      "true": "con ếch",
+      "pred": "em rể",
+      "count": 1
+    },
+    {
+      "true": "điện",
+      "pred": "hi sinh",
+      "count": 1
+    },
+    {
+      "true": "chiếc gối",
+      "pred": "Mã Lai (nước Ma-lai-xi-a)",
+      "count": 1
+    },
+    {
+      "true": "cháu ngoại",
+      "pred": "cháu nội",
+      "count": 1
+    },
+    {
+      "true": "cháu nội",
+      "pred": "cháu ngoại",
+      "count": 1
+    },
+    {
+      "true": "chùa",
+      "pred": "buông màn",
+      "count": 1
+    },
+    {
+      "true": "chăm sóc sức khỏe",
+      "pred": "chúc thọ",
+      "count": 1
+    },
+    {
+      "true": "chảo",
+      "pred": "hành quân",
+      "count": 1
+    },
+    {
+      "true": "chống đối",
+      "pred": "cây ăn quả",
+      "count": 1
+    },
+    {
+      "true": "chữa bài",
+      "pred": "chị",
+      "count": 1
+    }
+  ]
+}

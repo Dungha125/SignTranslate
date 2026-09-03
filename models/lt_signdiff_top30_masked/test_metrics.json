@@ -1,0 +1,9 @@
+{
+  "top1": 73.33,
+  "top5": 86.67,
+  "n": 30,
+  "num_classes": 30,
+  "mode": "masked_compact_top30",
+  "source_ckpt": "E:\\paper\\VSL\\sign_translate\\models\\lt_signdiff_top200\\best.pt",
+  "knn5": 56.67
+}

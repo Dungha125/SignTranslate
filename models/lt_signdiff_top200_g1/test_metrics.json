@@ -1,0 +1,15 @@
+{
+  "top1": 42.0,
+  "top5": 59.0,
+  "macro_f1": 35.13,
+  "n": 200,
+  "head_top1": 43.3,
+  "head_top5": 65.98,
+  "head_macro_f1": 40.38,
+  "mid_top1": 40.78,
+  "mid_top5": 52.43,
+  "mid_macro_f1": 36.8,
+  "tail_top1": 0.0,
+  "tail_top5": 0.0,
+  "tail_macro_f1": 0.0
+}

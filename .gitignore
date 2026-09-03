@@ -1,0 +1,56 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+ENV/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Environment and local configuration
+.env
+.env.*
+!.env.example
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Logs and local runtime files
+*.log
+*.pid
+*.sqlite
+*.sqlite3
+
+# Local datasets, uploads, thumbnails, and generated media
+backend/_localstore/vsl-dataset/
+backend/_localstore/vsl-thumbs/
+backend/_localstore/vsl-videos/
+backend/uploads/
+backend/*.mp4
+backend/*.avi
+backend/*.mov
+backend/__pycache__/
+backend/.venv311/
+
+# Large model checkpoints and generated artifacts
+*.pt
+*.pt.bak
+*.pth
+*.ckpt
+*.onnx
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

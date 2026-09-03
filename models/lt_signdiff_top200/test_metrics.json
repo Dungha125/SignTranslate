@@ -1,0 +1,7 @@
+{
+  "test_top1": 55.5,
+  "test_top5": 68.5,
+  "test_knn5": 33.5,
+  "best_val_score": 60.4,
+  "n_test": 200
+}

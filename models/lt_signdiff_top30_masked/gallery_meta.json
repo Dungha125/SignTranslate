@@ -1,0 +1,9 @@
+{
+  "source": "rebuild_train_val",
+  "n_refs": 155,
+  "splits": [
+    "train",
+    "val"
+  ],
+  "vocab": "top30"
+}

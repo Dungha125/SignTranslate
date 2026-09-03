@@ -1,0 +1,8 @@
+{
+  "source": "rebuild_train_val",
+  "n_refs": 760,
+  "splits": [
+    "train",
+    "val"
+  ]
+}

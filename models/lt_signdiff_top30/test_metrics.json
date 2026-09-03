@@ -1,0 +1,8 @@
+{
+  "test_top1": 3.33,
+  "test_top5": 16.67,
+  "test_knn3": 50.0,
+  "best_val_score": 66.66666666666666,
+  "n_test": 30,
+  "num_classes": 30
+}

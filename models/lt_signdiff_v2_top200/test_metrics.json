@@ -1,0 +1,30 @@
+{
+  "runs": [
+    "lt_signdiff_v2_s1",
+    "lt_signdiff_v2_s2",
+    "lt_signdiff_v2_s3"
+  ],
+  "tta": true,
+  "val_fused_top1": 79.19,
+  "fusion_weights": [
+    0.194,
+    0.194,
+    0.613
+  ],
+  "test_cls_top1": 77.5,
+  "test_proto_top1": 76.0,
+  "test_knn_top1": 83.5,
+  "test_fused_top1": 82.5,
+  "test_fused_top3": 85.5,
+  "test_fused_top5": 86.5,
+  "n_test": 200,
+  "exported_single": {
+    "run": "lt_signdiff_v2_s1",
+    "val_fused_top1": 79.19,
+    "test_cls_top1": 77.5,
+    "test_proto_top1": 78.0,
+    "test_knn_top1": 84.5,
+    "test_fused_top1": 84.0,
+    "test_fused_top5": 86.0
+  }
+}
