@@ -1,0 +1,48 @@
+# SignTranslate API — chép vào /etc/caddy/sites/signtranslate.caddy
+# Backend nghe ở 127.0.0.1:8020 (xem deploy/docker-compose.yml)
+# Frontend nằm trên Vercel tại https://trans.mophongthuattoan.com
+
+api.trans.mophongthuattoan.com {
+	encode gzip zstd
+
+	header {
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	# Khớp SIGN_TRANSLATE_MAX_UPLOAD_MB=80, chừa thêm phần multipart overhead.
+	request_body {
+		max_size 100MB
+	}
+
+	# Stream video/thumbnail: không đệm, timeout ngắn là đủ.
+	@media path /api/dataset/clips/*/stream /api/dataset/clips/*/thumb
+	handle @media {
+		reverse_proxy 127.0.0.1:8020 {
+			flush_interval -1
+			header_up X-Real-IP {remote_host}
+			header_up X-Forwarded-For {remote_host}
+			header_up X-Forwarded-Proto {scheme}
+			transport http {
+				read_timeout 300s
+				write_timeout 300s
+				dial_timeout 10s
+			}
+		}
+	}
+
+	# Rebuild gallery / import corpus / train chạy tới 15 phút trong cùng request.
+	handle {
+		reverse_proxy 127.0.0.1:8020 {
+			header_up X-Real-IP {remote_host}
+			header_up X-Forwarded-For {remote_host}
+			header_up X-Forwarded-Proto {scheme}
+			transport http {
+				read_timeout 960s
+				write_timeout 960s
+				dial_timeout 15s
+			}
+		}
+	}
+}

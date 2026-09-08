@@ -1,0 +1,23 @@
+# Bản ghim cho production. torch cài riêng từ index CPU trong Dockerfile.
+#
+# mediapipe 0.10.14 biên dịch với numpy 1.x ABI, nên toàn bộ cây phụ thuộc phải
+# ở lại numpy 1: opencv >=5 và jax >=0.5 đều đòi numpy>=2 và sẽ vỡ ABI.
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+python-multipart>=0.0.9
+pydantic>=2.0
+
+numpy==1.26.4
+opencv-python-headless==4.10.0.84
+opencv-contrib-python==4.10.0.84
+mediapipe==0.10.14
+protobuf<5
+jax==0.4.30
+jaxlib==0.4.30
+matplotlib<3.10
+
+pandas>=2.0.0,<3
+tqdm>=4.65.0
+
+redis>=5.0
+minio>=7.2

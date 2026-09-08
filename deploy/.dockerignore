@@ -1,0 +1,11 @@
+**/__pycache__
+**/*.pyc
+**/.venv
+**/node_modules
+sign_translate/models
+sign_translate/backend/_localstore
+sign_translate/backend/uploads
+LT_SignDiff/runs
+LT_SignDiff/models
+vsl_hsp_bimamba_k4/checkpoints
+vsl_hsp_bimamba_k4/data

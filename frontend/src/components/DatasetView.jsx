@@ -5,7 +5,7 @@ import {
 } from 'lucide-react'
 import {
   datasetClips, datasetDelete, datasetImport, datasetPatch, datasetStats,
-  datasetUpload, datasetWebcamClip, errMessage, formatBytes, getStorageHealth, timeAgo,
+  datasetUpload, datasetWebcamClip, errMessage, formatBytes, getStorageHealth, mediaUrl, timeAgo,
 } from '../lib/api'
 import { useWebcam } from '../hooks/useWebcam'
 import WebcamPanel from './WebcamPanel'
@@ -91,7 +91,7 @@ export default function DatasetView() {
             <button className="btn btn-ghost btn-sm" onClick={refresh} disabled={busy}>
               <RefreshCw size={13} /> Làm mới
             </button>
-            <a className="btn btn-ghost btn-sm" href="/api/dataset/export.csv" download>
+            <a className="btn btn-ghost btn-sm" href={mediaUrl('/api/dataset/export.csv')} download>
               <Download size={13} /> Xuất CSV
             </a>
             <button className="btn btn-ghost btn-sm" onClick={importCorpus} disabled={busy}>
@@ -234,7 +234,7 @@ function ClipCard({ clip, onPlay, onDelete, onSplit }) {
     <article className="card">
       <button onClick={onPlay} style={{ display: 'block', width: '100%', position: 'relative' }} title="Phát clip">
         {clip.thumb_url ? (
-          <img className="thumb" src={clip.thumb_url} alt={clip.gloss} loading="lazy" />
+          <img className="thumb" src={mediaUrl(clip.thumb_url)} alt={clip.gloss} loading="lazy" />
         ) : (
           <div className="thumb" style={{ display: 'grid', placeItems: 'center' }}>
             <Play size={22} style={{ color: 'var(--ink-3)' }} />
@@ -293,7 +293,7 @@ function PlayerModal({ clip, onClose }) {
           <div className="grow" />
           <button className="btn btn-quiet btn-sm" onClick={onClose}><X size={14} /></button>
         </div>
-        <video src={clip.stream_url} controls autoPlay style={{ width: '100%', background: '#101211' }} />
+        <video src={mediaUrl(clip.stream_url)} controls autoPlay style={{ width: '100%', background: '#101211' }} />
         <div className="card-pad row gap-2 wrap-row small muted" style={{ padding: '12px 18px' }}>
           <span className="chip">{clip.split}</span>
           <span className="chip">{clip.source}</span>

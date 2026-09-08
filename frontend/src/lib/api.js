@@ -2,6 +2,16 @@ import axios from 'axios'
 
 /** Gom mọi endpoint về một chỗ để component không phải nhớ đường dẫn. */
 
+/**
+ * Khi frontend và backend nằm khác origin (Vercel ↔ VPS), mọi đường dẫn `/api/...`
+ * phải được ghép thêm tiền tố. Để trống thì dùng đường dẫn tương đối như bản dev,
+ * lúc đó Vite proxy lo phần chuyển tiếp.
+ */
+export const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
+
+/** Dùng cho URL đặt thẳng vào `src`/`href` — axios không can thiệp được. */
+export const mediaUrl = (path) => (path ? `${API_BASE}${path}` : path)
+
 const unwrap = (p) => p.then((r) => r.data)
 
 export const errMessage = (e) =>

@@ -212,8 +212,14 @@ def _capture_cfg(cfg: dict) -> dict:
 
 # ─── app ─────────────────────────────────────────────────────────────────────
 app = FastAPI(title="LT-SignDiff Sign Translate API", version="5.0.0")
+
+# Frontend chạy trên domain khác (Vercel) nên phải khai báo origin cụ thể;
+# để trống hoặc "*" thì mở cho mọi nguồn như bản dev.
+_CORS_ORIGINS = [
+    o.strip() for o in os.environ.get("SIGN_TRANSLATE_CORS_ORIGINS", "*").split(",") if o.strip()
+] or ["*"]
 app.add_middleware(
-    CORSMiddleware, allow_origins=["*"],
+    CORSMiddleware, allow_origins=_CORS_ORIGINS,
     allow_credentials=True, allow_methods=["*"], allow_headers=["*"],
 )
 app.include_router(_routes_dataset.router)

@@ -1,0 +1,52 @@
+# Stack production: backend FastAPI + Redis.
+# Object store dùng đĩa cục bộ (không chạy MinIO) để tiết kiệm RAM trên VPS 6GB.
+name: signtranslate
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: signtranslate-redis
+    restart: unless-stopped
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --appendfsync
+      - everysec
+      - --maxmemory
+      - 256mb
+      - --maxmemory-policy
+      - noeviction
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  backend:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    image: signtranslate-backend
+    container_name: signtranslate-backend
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      MINIO_ENDPOINT: ""
+      SIGN_TRANSLATE_LOCAL_STORE: /data/localstore
+    volumes:
+      - ./app/sign_translate/models:/app/sign_translate/models:ro
+      - ./data/localstore:/data/localstore
+    ports:
+      - "127.0.0.1:8020:8000"
+    mem_limit: 3g
+    shm_size: 256m
+
+volumes:
+  redis-data:

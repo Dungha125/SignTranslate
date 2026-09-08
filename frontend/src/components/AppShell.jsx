@@ -63,10 +63,18 @@ export default function AppShell({ tab, onTab, user, onLogout, children }) {
           <div className="row gap-3">
             <div className="brandmark">S</div>
             <div>
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.08rem', fontWeight: 600, lineHeight: 1.15 }}>
+              <div
+                style={{
+                  fontFamily: 'var(--font-display)',
+                  fontSize: '1.08rem',
+                  fontWeight: 600,
+                  lineHeight: 1.15,
+                  whiteSpace: 'nowrap',
+                }}
+              >
                 SignTranslate
               </div>
-              <div className="eyebrow" style={{ fontSize: '.62rem' }}>
+              <div className="eyebrow brand-sub" style={{ fontSize: '.62rem', whiteSpace: 'nowrap' }}>
                 Ngôn ngữ ký hiệu Việt
               </div>
             </div>
@@ -149,8 +157,9 @@ function StatusPill({ health, online, modelOk }) {
       </span>
       {store && (
         <span
-          className="chip"
+          className="chip hide-narrow"
           title={`Redis: ${store.redis} · Object store: ${store.object_store}`}
+          style={{ whiteSpace: 'nowrap' }}
         >
           {store.redis_ok && store.object_store_ok ? <Wifi size={12} /> : <WifiOff size={12} />}
           {store.redis_ok ? 'redis' : 'ram'} · {store.object_store_ok ? 'minio' : 'local'}
