@@ -310,6 +310,10 @@ def _run_inference(
 def _decode_frames(frames_b64: list[str]) -> list[np.ndarray]:
     frames = []
     for b64 in frames_b64:
+        # Client trong repo đã cắt sẵn tiền tố, nhưng canvas.toDataURL của một
+        # client khác thì không — cắt ở đây để không trả 422 khó hiểu.
+        if b64.startswith("data:"):
+            b64 = b64.partition(",")[2]
         arr = np.frombuffer(base64.b64decode(b64), dtype=np.uint8)
         img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
         if img is not None:

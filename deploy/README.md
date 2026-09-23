@@ -13,8 +13,7 @@ trên VPS `180.93.32.135` tại `https://api.trans.mophongthuattoan.com`.
 └── app/                        # build context, cũng là _REPO của backend
     ├── Dockerfile
     ├── requirements-prod.txt
-    ├── LT_SignDiff/            # package inference v1/v2 + splits + configs
-    ├── vsl_hsp_bimamba_k4/     # package HSP-BiMamba
+    ├── LT_SignDiff/            # package inference + splits + configs
     └── sign_translate/
         ├── backend/
         └── models/             # checkpoint (mount read-only vào container)
@@ -27,17 +26,30 @@ Không chạy MinIO: VPS chỉ có ~2.5 GB RAM trống nên object store dùng t
 `SIGN_TRANSLATE_LOCAL_STORE`. Redis vẫn cần cho phiên đăng nhập, cache suy luận,
 metadata dataset và lịch sử.
 
-## Model đã nạp
+## Model
 
-| Model | Checkpoint | Ghi chú |
-|---|---|---|
-| `lt_signdiff_v2_top200` | 27 MB | mặc định, 200 gloss, gallery 760 |
-| `lt_signdiff_top30_masked` | 122 MB | 30 gloss, dùng cho luồng enroll |
-| `hsp_bimamba_top100` | 27 MB | 100 gloss, MP75 |
+Dịch vụ chạy duy nhất `lt_signdiff_v2_top200` (27 MB, 200 gloss, gallery 760 tham
+chiếu, TTA bật). Các kiến trúc khác trong repo — CurriVSL, WBDPNet, HSP-BiMamba —
+chỉ còn dùng để so sánh trong bài báo, không nằm trong đường chạy của dịch vụ và
+không được copy lên server.
 
-Toàn bộ model nạp vào RAM lúc khởi động (~570 MB RSS). Muốn thêm model thì copy
-checkpoint vào `app/sign_translate/models/<id>/` rồi `docker compose restart backend`;
-model nào thiếu file sẽ bị bỏ qua kèm cảnh báo `[WARN] ckpt not found`.
+Checkpoint thiếu file thì startup chỉ in `[WARN] ckpt not found` rồi chạy tiếp với
+`model_loaded: false`; kiểm tra bằng `curl -s localhost:8020/api/health`.
+
+## Kho video từ vựng
+
+Clip mẫu của tab *Từ vựng* nằm chung object store với dataset huấn luyện nhưng mang
+`source="library"`, nên bị loại khỏi `/api/dataset/clips`, `/api/dataset/stats` và
+`export.csv`. Tiến độ học lưu ở Redis theo tài khoản (`lib:prog:<username>`).
+
+Nạp clip mẫu từ máy dev (cần `Dataset/Text/label.csv` + `Dataset/Videos/`):
+
+```bash
+python seed_library.py --dry-run          # xem kế hoạch
+python seed_library.py --per-gloss 2      # nạp, bỏ qua từ đã đủ clip
+```
+
+Hiện trạng: 200/200 từ có clip mẫu, 399 clip, ~330 MB trong `data/localstore/`.
 
 ## Vận hành
 
@@ -50,8 +62,11 @@ docker compose restart backend         # nạp lại model / đổi .env
 docker compose up -d --build           # sau khi cập nhật code
 ```
 
-Cập nhật code từ máy dev: đồng bộ `backend/`, `LT_SignDiff/`, `vsl_hsp_bimamba_k4/`
-vào `/opt/signtranslate/app/` rồi chạy `docker compose up -d --build`.
+Cập nhật code từ máy dev: đồng bộ `backend/` và `LT_SignDiff/` vào
+`/opt/signtranslate/app/` rồi chạy `docker compose up -d --build`.
+
+Đĩa của VPS dùng chung với 7 project khác và hay chạm ngưỡng 90%. Dọn an toàn bằng
+`docker builder prune -f` (chỉ xoá cache lơ lửng, không ảnh hưởng image đang dùng).
 
 Đổi cấu hình Caddy:
 
