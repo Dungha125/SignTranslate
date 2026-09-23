@@ -7,6 +7,7 @@ import './index.css'
 
 // Đặt trước khi render để AuthContext và mọi component đều gọi đúng origin.
 axios.defaults.baseURL = API_BASE
+document.documentElement.setAttribute('data-theme', 'light')
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

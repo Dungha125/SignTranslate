@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Sparkles } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { errMessage } from '../lib/api'
 
@@ -24,14 +25,25 @@ export default function LoginPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'grid', gridTemplateColumns: '1fr', placeItems: 'center', padding: 24 }}>
+    <div
+      style={{
+        minHeight: '100vh',
+        display: 'grid',
+        placeItems: 'center',
+        padding: 24,
+        background:
+          'radial-gradient(900px 480px at 50% -8%, #e3ecff 0%, transparent 62%), var(--paper)',
+      }}
+    >
       <div className="stack gap-6 rise" style={{ width: '100%', maxWidth: 380 }}>
         <div className="stack gap-3" style={{ alignItems: 'center', textAlign: 'center' }}>
-          <div className="brandmark" style={{ width: 44, height: 44, fontSize: '1.15rem' }}>S</div>
+          <div className="brandmark" style={{ width: 46, height: 46 }}>
+            <Sparkles size={22} strokeWidth={2.2} />
+          </div>
           <div>
-            <h1 style={{ fontSize: '1.6rem' }}>SignTranslate</h1>
+            <h1 style={{ fontSize: '1.7rem' }}>SignTranslate</h1>
             <p className="small muted" style={{ marginTop: 2 }}>
-              Dịch ngôn ngữ ký hiệu Việt bằng LT-SignDiff
+              Dịch và học ngôn ngữ ký hiệu Việt bằng LT-SignDiff
             </p>
           </div>
         </div>
@@ -74,7 +86,7 @@ export default function LoginPage() {
         </form>
 
         <p className="tiny dim" style={{ textAlign: 'center' }}>
-          Tài khoản demo: <span className="mono">admin / admin123</span>
+          LT-SignDiff v2 · 200 từ vựng · MediaPipe Holistic
         </p>
       </div>
     </div>

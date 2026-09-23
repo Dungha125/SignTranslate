@@ -1,16 +1,15 @@
 # -*- coding: utf-8 -*-
 """
-CurriVSL Sign Translation API — FastAPI backend v3
-  POST /api/auth/login
-  POST /api/auth/logout
-  GET  /api/auth/me
-  GET  /api/models
-  GET  /api/health
-  POST /api/translate/video
-  POST /api/translate/frames
-  POST /api/learn/train        (auth required)
-  GET  /api/learn/status/{id}  (auth required)
-  GET  /api/learn/jobs         (auth required)
+SignTranslate API — FastAPI backend, chạy trên một model duy nhất: LT-SignDiff v2.
+
+  POST /api/auth/login | /api/auth/logout | GET /api/auth/me
+  GET  /api/models · /api/health
+  GET  /api/vocab/{model_id} · /api/gallery/{model_id}
+  POST /api/translate/video · /api/translate/frames
+  POST /api/enroll/frames · /api/gallery/rebuild/{model_id}
+
+Các router khác: routes_dataset (kho clip huấn luyện), routes_insights (lịch sử +
+thống kê), routes_library (kho video từ vựng + luyện tập).
 """
 from __future__ import annotations
 
@@ -21,6 +20,15 @@ import sys
 import tempfile
 import time
 from pathlib import Path
+
+# Log của hệ thống viết bằng tiếng Việt, kể cả tên gloss. Console Windows mặc
+# định là cp1252 nên một dòng log có thể ném UnicodeEncodeError và làm hỏng cả
+# bước nạp model — buộc UTF-8 ngay từ đầu.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
 
 import cv2
 import numpy as np
@@ -33,19 +41,16 @@ import storage as _storage
 import dataset_store as _ds
 import routes_dataset as _routes_dataset
 import routes_insights as _routes_insights
+import routes_library as _routes_library
 from extractor import SkeletonExtractor
-from extractor_hsp import extract_hsp_from_frames, extract_hsp_from_video
-from inference import CurriVSLModel
-from inference_wbdpnet import WBDPNetModel
-from inference_hsp_bimamba import HSPBiMambaModel
-from inference_lt_signdiff import LTSignDiffModel
 from inference_lt_signdiff_v2 import LTSignDiffV2Model
-import train_new_word as _tnw
-import train_new_word_hsp as _tnw_hsp
 
 # ─── model registry ──────────────────────────────────────────────────────────
 _REPO = Path(__file__).resolve().parent.parent.parent
 
+# Hệ thống chạy trên một kiến trúc duy nhất: LT-SignDiff v2. Các nhánh CurriVSL /
+# WBDPNet / HSP-BiMamba vẫn còn trong repo cho mục đích so sánh trong bài báo,
+# nhưng không nằm trong đường chạy của dịch vụ nữa.
 MODEL_REGISTRY: dict[str, dict] = {
     "lt_signdiff_v2_top200": {
         "type": "lt_signdiff_v2",
@@ -61,104 +66,18 @@ MODEL_REGISTRY: dict[str, dict] = {
         "model_num_frames": 32,
         "capture_buffer_frames": 48,
         "use_tta": True,
-        "display_name": "LT-SignDiff v2 Top200",
-        "description": "Encoder không gian-thời gian v2 · 74 khớp × 10 kênh · hợp nhất classifier + prototype + kNN",
+        "display_name": "LT-SignDiff v2",
+        "description": "Encoder không gian-thời gian · 74 khớp × 10 kênh · hợp nhất classifier + prototype + kNN",
         "splits_dir": str(_REPO / "LT_SignDiff" / "data" / "splits_top200"),
-    },
-    "lt_signdiff_top30_masked": {
-        "type": "lt_signdiff",
-        "ckpt": str(os.environ.get(
-            "LT_SIGNDIFF_TOP30_CKPT",
-            _REPO / "sign_translate" / "models" / "lt_signdiff_top30_masked" / "best.pt",
-        )),
-        "num_joints": 110,
-        "num_frames": 16,
-        "model_num_frames": 16,
-        "capture_buffer_frames": 32,
-        "use_tta": True,
-        "display_name": "LT-SignDiff Top30",
-        "description": "Top-200 backbone masked to 30 densest glosses (offline Top-1 73.3%; enroll 2–3 mẫu/gloss → ~80%)",
-        "splits_dir": str(_REPO / "LT_SignDiff" / "data" / "splits_top30"),
-        "rebuild_config": str(_REPO / "LT_SignDiff" / "configs" / "vsl_top30.yaml"),
-    },
-    "lt_signdiff_top200": {
-        "type": "lt_signdiff",
-        "ckpt": str(os.environ.get(
-            "LT_SIGNDIFF_CKPT",
-            _REPO / "sign_translate" / "models" / "lt_signdiff_top200" / "best.pt",
-        )),
-        "num_joints": 110,
-        "num_frames": 16,
-        "model_num_frames": 16,
-        "capture_buffer_frames": 32,
-        "use_tta": True,
-        "display_name": "LT-SignDiff Top200",
-        "description": "LT-SignDiff closed-set 200 glosses (hand+face 110 joints)",
-        "splits_dir": str(_REPO / "LT_SignDiff" / "data" / "splits_top200"),
-        "rebuild_config": str(_REPO / "LT_SignDiff" / "configs" / "vsl_top200.yaml"),
-    },
-    "currivsl_110": {
-        "type": "curivsl",
-        "ckpt": str(os.environ.get(
-            "CURRIVSL_CKPT_110",
-            _REPO / "Model_full" / "runs_stageC_wlasl2000_handface110" / "stageC_curriculum.pt",
-        )),
-        "num_joints": 110,
-        "display_name": "CurriVSL_110",
-        "description": "Hand + Face (110 joints)",
-    },
-    "currivsl_42": {
-        "type": "curivsl",
-        "ckpt": str(os.environ.get(
-            "CURRIVSL_CKPT_42",
-            _REPO / "Curri" / "models_stageC" / "stageC_curriculum.pt",
-        )),
-        "num_joints": 42,
-        "display_name": "CurriVSL_42",
-        "description": "Hand only (42 joints)",
-    },
-    "wbdpnet_v2_143": {
-        "type": "wbdpnet",
-        "ckpt": str(os.environ.get(
-            "WBDPNET_CKPT_143",
-            _REPO
-            / "sign_translate"
-            / "models"
-            / "wbdpnet_vsl_v2_be_bundle"
-            / "wbdpnet_vsl_v2_be"
-            / "runs"
-            / "wbdpnet_vsl_v2"
-            / "best.pt",
-        )),
-        "num_joints": 143,
-        "display_name": "WBDPNet_143",
-        "description": "Whole-body dual-reference prototype network (hand+face+pose)",
-    },
-    "hsp_bimamba_top100": {
-        "type": "hsp_bimamba",
-        "ckpt": str(os.environ.get(
-            "HSP_BIMAMBA_CKPT",
-            _REPO
-            / "sign_translate"
-            / "models"
-            / "hsp_bimamba_vsl_top100_mp75"
-            / "best.pt",
-        )),
-        "num_joints": 75,
-        "extract_joints": 143,
-        "num_frames": 0,
-        "model_num_frames": 30,
-        "capture_buffer_frames": 50,
-        "use_tta": False,
-        "display_name": "HSP-BiMamba Top100",
-        "description": "VSL top-100 glosses, MP75 skeleton (B5, K=4)",
     },
 }
 
-DEFAULT_MODEL = os.environ.get("SIGN_TRANSLATE_DEFAULT_MODEL", "lt_signdiff_top30_masked")
-TOP_K = int(os.environ.get("CURRIVSL_TOP_K", "10"))
+DEFAULT_MODEL = os.environ.get("SIGN_TRANSLATE_DEFAULT_MODEL", "lt_signdiff_v2_top200")
+if DEFAULT_MODEL not in MODEL_REGISTRY:
+    DEFAULT_MODEL = next(iter(MODEL_REGISTRY))
+TOP_K = int(os.environ.get("SIGN_TRANSLATE_TOP_K", "10"))
 
-# Webcam capture settings per model family (aligned with skeleton T at inference).
+# Thông số ghi webcam khớp với T của skeleton lúc suy luận.
 CAPTURE_DEFAULTS: dict[str, dict] = {
     "lt_signdiff_v2": {
         "capture_buffer_frames": 48,
@@ -168,40 +87,12 @@ CAPTURE_DEFAULTS: dict[str, dict] = {
         "capture_jpeg_quality": 0.9,
         "use_tta": True,
     },
-    "lt_signdiff": {
-        "capture_buffer_frames": 32,
-        "capture_num_frames": 16,
-        "capture_min_frames": 16,
-        "capture_interval_ms": 100,
-        "capture_jpeg_quality": 0.9,
-        "use_tta": True,
-    },
-    "hsp_bimamba": {
-        "capture_buffer_frames": 50,
-        "capture_num_frames": 30,
-        "capture_min_frames": 40,
-        "capture_interval_ms": 100,
-        "capture_jpeg_quality": 0.92,
-        "use_tta": False,
-    },
-    "curivsl": {
-        "capture_num_frames": 16,
-        "capture_min_frames": 8,
-        "capture_interval_ms": 100,
-        "capture_jpeg_quality": 0.75,
-    },
-    "wbdpnet": {
-        "capture_num_frames": 16,
-        "capture_min_frames": 8,
-        "capture_interval_ms": 100,
-        "capture_jpeg_quality": 0.75,
-    },
 }
 
 
 def _capture_cfg(cfg: dict) -> dict:
-    mtype = cfg.get("type", "curivsl")
-    base = dict(CAPTURE_DEFAULTS.get(mtype, CAPTURE_DEFAULTS["curivsl"]))
+    mtype = cfg.get("type", "lt_signdiff_v2")
+    base = dict(CAPTURE_DEFAULTS.get(mtype, CAPTURE_DEFAULTS["lt_signdiff_v2"]))
     if cfg.get("model_num_frames"):
         base["capture_num_frames"] = int(cfg["model_num_frames"])
     if cfg.get("capture_buffer_frames"):
@@ -224,49 +115,13 @@ app.add_middleware(
 )
 app.include_router(_routes_dataset.router)
 app.include_router(_routes_insights.router)
+app.include_router(_routes_library.router)
 
 _models: dict[str, object] = {}
 _extractor: SkeletonExtractor | None = None
 
 # Cache kết quả suy luận theo hash nội dung — bấm dịch lại cùng video là tức thì.
 INFER_CACHE_TTL = int(os.environ.get("SIGN_TRANSLATE_CACHE_TTL", str(60 * 60 * 12)))
-
-
-# ─── reload callback (called after training) ─────────────────────────────────
-def _reload_model(model_id: str, ckpt_path: Path, num_joints: int, top_k: int):
-    try:
-        cfg = MODEL_REGISTRY.get(model_id, {})
-        mtype = cfg.get("type", "curivsl")
-        if mtype == "wbdpnet":
-            _models[model_id] = WBDPNetModel(ckpt_path, num_joints=num_joints, top_k=top_k)
-        elif mtype == "hsp_bimamba":
-            _models[model_id] = HSPBiMambaModel(
-                ckpt_path,
-                num_joints=num_joints,
-                num_frames=int(cfg.get("model_num_frames", 30)),
-                top_k=top_k,
-                use_tta=bool(cfg.get("use_tta", True)),
-            )
-        elif mtype == "lt_signdiff_v2":
-            _models[model_id] = LTSignDiffV2Model(
-                ckpt_path,
-                num_frames=int(cfg.get("model_num_frames", 32)),
-                top_k=top_k,
-                use_tta=bool(cfg.get("use_tta", True)),
-            )
-        elif mtype == "lt_signdiff":
-            _models[model_id] = LTSignDiffModel(
-                ckpt_path,
-                num_joints=num_joints,
-                num_frames=int(cfg.get("model_num_frames", 16)),
-                top_k=top_k,
-                use_tta=bool(cfg.get("use_tta", True)),
-            )
-        else:
-            _models[model_id] = CurriVSLModel(ckpt_path, num_joints=num_joints, top_k=top_k)
-        print(f"[Reload] {model_id} reloaded from {ckpt_path}")
-    except Exception as e:
-        print(f"[Reload] failed for {model_id}: {e}")
 
 
 def _extract_cfg(model_id: str) -> tuple[int, int | None]:
@@ -279,12 +134,6 @@ def _extract_cfg(model_id: str) -> tuple[int, int | None]:
 
 
 def _extract_skeleton_video(video_path: str | Path, model_id: str) -> np.ndarray | None:
-    cfg = MODEL_REGISTRY[model_id]
-    if cfg.get("type") == "hsp_bimamba":
-        return extract_hsp_from_video(
-            video_path,
-            num_frames=int(cfg.get("model_num_frames", 30)),
-        )
     extract_joints, num_frames = _extract_cfg(model_id)
     return _extractor.extract_from_video_path(
         video_path, num_joints=extract_joints, num_frames=num_frames
@@ -292,14 +141,6 @@ def _extract_skeleton_video(video_path: str | Path, model_id: str) -> np.ndarray
 
 
 def _extract_skeleton_frames(frames: list[np.ndarray], model_id: str) -> np.ndarray | None:
-    cfg = MODEL_REGISTRY[model_id]
-    if cfg.get("type") == "hsp_bimamba":
-        cap = _capture_cfg(cfg)
-        return extract_hsp_from_frames(
-            frames,
-            num_frames=int(cfg.get("model_num_frames", 30)),
-            buffer_frames=int(cap.get("capture_buffer_frames", 50)),
-        )
     extract_joints, num_frames = _extract_cfg(model_id)
     return _extractor.extract_from_frames(
         frames, num_joints=extract_joints, num_frames=num_frames
@@ -320,39 +161,24 @@ def startup():
         print(f"[dataset] restore lỗi: {exc}")
     for mid, cfg in MODEL_REGISTRY.items():
         p = Path(cfg["ckpt"])
-        if p.is_file():
-            try:
-                if cfg.get("type") == "wbdpnet":
-                    _models[mid] = WBDPNetModel(p, num_joints=cfg["num_joints"], top_k=TOP_K)
-                elif cfg.get("type") == "hsp_bimamba":
-                    _models[mid] = HSPBiMambaModel(
-                        p,
-                        num_joints=cfg["num_joints"],
-                        num_frames=int(cfg.get("model_num_frames", 30)),
-                        top_k=TOP_K,
-                        use_tta=bool(cfg.get("use_tta", True)),
-                    )
-                elif cfg.get("type") == "lt_signdiff_v2":
-                    _models[mid] = LTSignDiffV2Model(
-                        p,
-                        num_frames=int(cfg.get("model_num_frames", 32)),
-                        top_k=TOP_K,
-                        use_tta=bool(cfg.get("use_tta", True)),
-                    )
-                elif cfg.get("type") == "lt_signdiff":
-                    _models[mid] = LTSignDiffModel(
-                        p,
-                        num_joints=cfg["num_joints"],
-                        num_frames=int(cfg.get("model_num_frames", 16)),
-                        top_k=TOP_K,
-                        use_tta=bool(cfg.get("use_tta", True)),
-                    )
-                else:
-                    _models[mid] = CurriVSLModel(p, num_joints=cfg["num_joints"], top_k=TOP_K)
-            except Exception as e:
-                print(f"[WARN] {mid}: {e}")
-        else:
+        if not p.is_file():
             print(f"[WARN] ckpt not found: {p}")
+            continue
+        try:
+            _models[mid] = LTSignDiffV2Model(
+                p,
+                num_frames=int(cfg.get("model_num_frames", 32)),
+                top_k=TOP_K,
+                use_tta=bool(cfg.get("use_tta", True)),
+            )
+        except Exception as e:  # noqa: BLE001 - một model lỗi không được chặn boot
+            print(f"[WARN] {mid}: {e}")
+
+    # Kho từ vựng cần vocab của model để biết 200 từ nào cần có video mẫu.
+    _routes_library.bind(
+        vocab_provider=lambda: _vocab_of(DEFAULT_MODEL),
+        predict=_predict_for_library,
+    )
 
 
 @app.on_event("shutdown")
@@ -393,17 +219,41 @@ class EnrollResponse(BaseModel):
     message: str
 
 
-class LearnRequest(BaseModel):
-    frames_b64: list[str]
-    label: str
-    model_id: str = DEFAULT_MODEL
-
 # ─── helpers ─────────────────────────────────────────────────────────────────
-def _get_model(model_id: str) -> CurriVSLModel:
+def _get_model(model_id: str) -> LTSignDiffV2Model:
     m = _models.get(model_id)
     if not m:
         raise HTTPException(404, f"Model '{model_id}' chưa load. Có: {list(_models)}")
     return m
+
+
+def _vocab_of(model_id: str) -> list[str]:
+    m = _models.get(model_id)
+    if not m:
+        return []
+    return [m.id2label[i] for i in sorted(m.id2label.keys())]
+
+
+def _predict_for_library(frames_b64: list[str]) -> tuple[list[dict], float]:
+    """Suy luận cho chế độ luyện tập. Trả (predictions, elapsed_ms).
+
+    Không ghi vào lịch sử dịch: một buổi luyện tập có hàng chục lượt thử nên sẽ
+    làm nhiễu số liệu vận hành ở tab Thống kê.
+    """
+    t0 = time.time()
+    if _extractor is None:
+        raise HTTPException(503, "Extractor chưa sẵn sàng")
+    frames = _decode_frames(frames_b64)
+    if not frames:
+        raise HTTPException(422, "Không decode được frame nào")
+    cap = _capture_cfg(MODEL_REGISTRY[DEFAULT_MODEL])
+    if len(frames) < int(cap["capture_min_frames"]):
+        raise HTTPException(422, f"Cần ít nhất {cap['capture_min_frames']} frame, mới nhận {len(frames)}")
+    sk = _extract_skeleton_frames(frames, DEFAULT_MODEL)
+    if sk is None:
+        raise HTTPException(422, "Không trích được skeleton — giữ hai tay trong khung hình")
+    preds = _get_model(DEFAULT_MODEL).predict(sk)
+    return preds, round((time.time() - t0) * 1000, 1)
 
 def _run_inference(
     sk: np.ndarray,
@@ -497,7 +347,7 @@ def list_models():
         {
             "id": mid, "display_name": cfg["display_name"],
             "description": cfg["description"], "num_joints": cfg["num_joints"],
-            "type": cfg.get("type", "curivsl"),
+            "type": cfg.get("type", "lt_signdiff_v2"),
             "loaded": mid in _models,
             "num_classes": len(_models[mid].id2label) if mid in _models else 0,
             **_capture_cfg(cfg),
@@ -533,62 +383,6 @@ def health():
     }
 
 
-class CompareRequest(BaseModel):
-    frames_b64: list[str] = []
-    model_ids: list[str]
-
-
-@app.post("/api/translate/compare")
-async def translate_compare(req: CompareRequest):
-    """Chạy cùng một đoạn ghi qua nhiều model để so sánh trực tiếp."""
-    if _extractor is None:
-        raise HTTPException(503, "Extractor not ready")
-    frames = _decode_frames(req.frames_b64)
-    if not frames:
-        raise HTTPException(422, "Không decode được frame nào")
-    ids = [m for m in req.model_ids if m in MODEL_REGISTRY and m in _models][:4]
-    if not ids:
-        raise HTTPException(400, "Không có model_id hợp lệ nào đang được load")
-
-    out = []
-    for mid in ids:
-        t0 = time.time()
-        try:
-            sk = _extract_skeleton_frames(frames, mid)
-            if sk is None:
-                raise ValueError("không trích được skeleton")
-            preds = _get_model(mid).predict(sk)
-            out.append(
-                {
-                    "model_id": mid,
-                    "display_name": MODEL_REGISTRY[mid]["display_name"],
-                    "predictions": preds[:5],
-                    "elapsed_ms": round((time.time() - t0) * 1000, 1),
-                    "error": None,
-                }
-            )
-        except Exception as exc:  # noqa: BLE001 - một model lỗi không chặn phần còn lại
-            out.append(
-                {
-                    "model_id": mid,
-                    "display_name": MODEL_REGISTRY[mid]["display_name"],
-                    "predictions": [],
-                    "elapsed_ms": round((time.time() - t0) * 1000, 1),
-                    "error": str(exc),
-                }
-            )
-
-    votes: dict[str, float] = {}
-    for r in out:
-        for p in r["predictions"][:3]:
-            votes[p["gloss"]] = votes.get(p["gloss"], 0.0) + float(p["score"])
-    consensus = sorted(votes.items(), key=lambda kv: -kv[1])[:5]
-    return {
-        "results": out,
-        "consensus": [{"gloss": g, "score": round(s / max(len(out), 1), 4)} for g, s in consensus],
-    }
-
-
 @app.get("/api/vocab/{model_id}")
 def get_vocab(model_id: str):
     """Return gloss list for a loaded closed-set model (e.g. top-200)."""
@@ -612,8 +406,6 @@ def get_gallery(model_id: str):
     m = _models.get(model_id)
     if not m:
         raise HTTPException(404, f"Model '{model_id}' chưa load")
-    if not isinstance(m, (LTSignDiffModel, LTSignDiffV2Model)):
-        raise HTTPException(400, "Gallery chỉ hỗ trợ LT-SignDiff")
     return {"model_id": model_id, **m.gallery_info()}
 
 
@@ -623,13 +415,11 @@ async def enroll_frames(req: EnrollRequest):
         raise HTTPException(503, "Extractor not ready")
     if req.model_id not in MODEL_REGISTRY:
         raise HTTPException(400, f"model_id không hợp lệ: {req.model_id}")
-    m = _models.get(req.model_id)
-    if not isinstance(m, (LTSignDiffModel, LTSignDiffV2Model)):
-        raise HTTPException(400, "Enroll chỉ hỗ trợ LT-SignDiff Top-200")
+    m = _get_model(req.model_id)
 
     gloss = req.gloss.strip()
     if not gloss:
-        raise HTTPException(400, "Chọn gloss trong bộ Top-200")
+        raise HTTPException(400, "Chọn một từ trong bộ từ vựng")
 
     frames = _decode_frames(req.frames_b64)
     if not frames:
@@ -658,22 +448,14 @@ async def enroll_frames(req: EnrollRequest):
 def rebuild_gallery(model_id: str):
     """Rebuild gallery from train+val split (admin utility)."""
     cfg = MODEL_REGISTRY.get(model_id) or {}
-    mtype = cfg.get("type")
-    if mtype not in ("lt_signdiff", "lt_signdiff_v2"):
-        raise HTTPException(400, "Chỉ rebuild được LT-SignDiff")
+    if not cfg:
+        raise HTTPException(404, f"Unknown model_id: {model_id}")
     import subprocess
 
-    is_v2 = mtype == "lt_signdiff_v2"
-    script = _REPO / "LT_SignDiff" / "scripts" / (
-        "rebuild_gallery_v2.py" if is_v2 else "rebuild_gallery.py"
-    )
+    script = _REPO / "LT_SignDiff" / "scripts" / "rebuild_gallery_v2.py"
     if not script.is_file():
         raise HTTPException(500, f"Missing {script}")
     cmd = [sys.executable, str(script), "--ckpt", str(cfg["ckpt"])]
-    if not is_v2:
-        cmd += ["--export-ckpt", str(cfg["ckpt"])]
-        if cfg.get("rebuild_config"):
-            cmd += ["--config", str(cfg["rebuild_config"])]
     if cfg.get("splits_dir"):
         cmd += ["--splits", str(cfg["splits_dir"])]
     r = subprocess.run(
@@ -686,7 +468,7 @@ def rebuild_gallery(model_id: str):
     if r.returncode != 0:
         raise HTTPException(500, r.stderr or r.stdout or "rebuild failed")
     m = _models.get(model_id)
-    if isinstance(m, (LTSignDiffModel, LTSignDiffV2Model)):
+    if m is not None:
         m._load_gallery()
     return {"ok": True, "output": r.stdout[-2000:]}
 
@@ -762,91 +544,3 @@ async def translate_frames(req: FramesRequest):
     if sk is None: raise HTTPException(422, "Không trích được skeleton")
     # Webcam luôn khác nhau từng lần ghi → không cache.
     return _run_inference(sk, req.model_id, t0, source="webcam")
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# LEARN (auth required)
-# ═══════════════════════════════════════════════════════════════════════════════
-@app.post("/api/learn/train")
-async def learn_train(
-    req: LearnRequest,
-    username: str = Depends(_auth.require_auth),
-):
-    if _extractor is None: raise HTTPException(503, "Extractor not ready")
-    if req.model_id not in MODEL_REGISTRY:
-        raise HTTPException(400, f"model_id không hợp lệ: {req.model_id}")
-    if not req.label.strip():
-        raise HTTPException(400, "Nhãn không được để trống")
-
-    cfg = MODEL_REGISTRY[req.model_id]
-    mtype = cfg.get("type", "curivsl")
-    if mtype not in ("curivsl", "hsp_bimamba"):
-        raise HTTPException(501, f"Model '{req.model_id}' hiện không hỗ trợ /api/learn/train.")
-
-    frames = _decode_frames(req.frames_b64)
-    if not frames:
-        raise HTTPException(422, "Không có frame hợp lệ")
-
-    cap = _capture_cfg(cfg)
-    min_frames = int(cap.get("capture_min_frames", 8))
-    if mtype == "hsp_bimamba" and len(frames) < min_frames:
-        raise HTTPException(
-            422,
-            f"Cần ít nhất {min_frames} frame (đã nhận {len(frames)}). Ghi ~5s ký hiệu.",
-        )
-
-    sk = _extract_skeleton_frames(frames, req.model_id)
-    if sk is None:
-        raise HTTPException(422, "Không trích được skeleton từ webcam")
-    ckpt_path = Path(cfg["ckpt"])
-    if not ckpt_path.is_file():
-        raise HTTPException(404, f"Checkpoint chưa có: {ckpt_path}")
-
-    label = req.label.strip()
-    if mtype == "hsp_bimamba":
-        job_id = _tnw_hsp.start_training(
-            skeleton=sk,
-            label=label,
-            model_id=req.model_id,
-            ckpt_path=ckpt_path,
-            num_joints=cfg["num_joints"],
-            top_k=TOP_K,
-            reload_model_cb=_reload_model,
-        )
-    else:
-        job_id = _tnw.start_training(
-            skeleton=sk,
-            label=label.lower(),
-            model_id=req.model_id,
-            ckpt_path=ckpt_path,
-            num_joints=cfg["num_joints"],
-            top_k=TOP_K,
-            reload_model_cb=_reload_model,
-        )
-    return {"job_id": job_id, "message": f"Bắt đầu huấn luyện từ '{label}'"}
-
-
-@app.get("/api/learn/vocab")
-def learn_vocab(model_id: str, username: str = Depends(_auth.require_auth)):
-    if model_id not in MODEL_REGISTRY:
-        raise HTTPException(400, f"model_id không hợp lệ: {model_id}")
-    m = _models.get(model_id)
-    if not m:
-        raise HTTPException(404, f"Model '{model_id}' chưa load")
-    labels = sorted(m.id2label.values()) if hasattr(m, "id2label") else []
-    return {"model_id": model_id, "num_classes": len(labels), "labels": labels}
-
-
-@app.get("/api/learn/status/{job_id}")
-def learn_status(job_id: str, username: str = Depends(_auth.require_auth)):
-    job = _tnw.get_job(job_id)
-    if not job: raise HTTPException(404, "Job không tồn tại")
-    return job.as_dict()
-
-
-@app.get("/api/learn/jobs")
-def learn_jobs(
-    model_id: str | None = None,
-    username: str = Depends(_auth.require_auth),
-):
-    return _tnw.list_jobs(model_id)

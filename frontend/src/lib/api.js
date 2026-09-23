@@ -49,8 +49,26 @@ export function translateVideo(file, modelId, { saveToDataset = false, gloss = '
 export const translateFrames = (framesB64, modelId) =>
   unwrap(axios.post('/api/translate/frames', { frames_b64: framesB64, model_id: modelId }, { timeout: 180_000 }))
 
-export const compareModels = (framesB64, modelIds) =>
-  unwrap(axios.post('/api/translate/compare', { frames_b64: framesB64, model_ids: modelIds }, { timeout: 300_000 }))
+// ── kho video từ vựng ───────────────────────────────────────────────────
+export const libraryOverview = () => unwrap(axios.get('/api/library/overview'))
+export const libraryWords = (params = {}) => unwrap(axios.get('/api/library/words', { params }))
+export const libraryWord = (gloss) => unwrap(axios.get('/api/library/word', { params: { gloss } }))
+export const libraryPractice = (framesB64, gloss) =>
+  unwrap(axios.post('/api/library/practice', { frames_b64: framesB64, gloss }, { timeout: 180_000 }))
+export const libraryResetProgress = () => unwrap(axios.delete('/api/library/progress'))
+export const libraryDeleteClip = (clipId) => unwrap(axios.delete(`/api/library/clips/${clipId}`))
+
+export function libraryUpload(file, gloss) {
+  const fd = new FormData()
+  fd.append('file', file)
+  fd.append('gloss', gloss)
+  return unwrap(
+    axios.post('/api/library/clips', fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 300_000,
+    }),
+  )
+}
 
 // ── kho dữ liệu ─────────────────────────────────────────────────────────
 export const datasetStats = () => unwrap(axios.get('/api/dataset/stats'))

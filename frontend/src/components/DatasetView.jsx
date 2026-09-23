@@ -47,7 +47,7 @@ export default function DatasetView() {
   useEffect(() => { refresh() }, [refresh])
 
   const remove = async (clip) => {
-    if (!window.confirm(`Xoá clip “${clip.gloss}” khỏi kho? Video sẽ bị xoá khỏi MinIO.`)) return
+    if (!window.confirm(`Xoá clip “${clip.gloss}” khỏi kho? Video sẽ bị xoá khỏi object store.`)) return
     setBusy(true)
     try {
       await datasetDelete(clip.clip_id)
@@ -69,12 +69,14 @@ export default function DatasetView() {
   }
 
   const importCorpus = async () => {
-    if (!window.confirm('Nạp 2 clip cho mỗi gloss từ corpus VSL trên đĩa vào MinIO (tối đa 120 clip)?')) return
+    if (!window.confirm('Nạp 2 clip cho mỗi từ từ corpus VSL nằm trên đĩa máy chủ (tối đa 120 clip)?')) return
     setBusy(true)
     setNote({ kind: 'info', text: 'Đang nạp corpus, có thể mất vài phút…' })
     try {
       const r = await datasetImport({ limit_per_gloss: 2, max_clips: 120 })
-      setNote({ kind: 'ok', text: `Đã nạp ${r.imported} clip (${r.skipped_duplicate} trùng, ${r.failed} lỗi).` })
+      // Máy chủ production không mang theo thư mục Dataset/ nên đây là lỗi hay gặp nhất.
+      if (r.error) setNote({ kind: 'bad', text: `${r.error} — corpus chỉ có trên máy phát triển.` })
+      else setNote({ kind: 'ok', text: `Đã nạp ${r.imported} clip (${r.skipped_duplicate} trùng, ${r.failed} lỗi).` })
       await refresh()
     } catch (e) {
       setNote({ kind: 'bad', text: errMessage(e) })
@@ -85,7 +87,7 @@ export default function DatasetView() {
     <>
       <PageHead
         title="Kho dữ liệu"
-        sub="Video lưu trong MinIO, metadata trong Redis. Thêm clip mới để mở rộng bộ huấn luyện cho từ còn thiếu mẫu."
+        sub="Dữ liệu dùng để huấn luyện: video trong object store, metadata trong Redis. Thêm clip cho những từ còn thiếu mẫu. Clip mẫu của tab Từ vựng không tính vào đây."
         action={
           <div className="row gap-2">
             <button className="btn btn-ghost btn-sm" onClick={refresh} disabled={busy}>
@@ -105,11 +107,11 @@ export default function DatasetView() {
 
       <StatsStrip stats={stats} storage={storage} />
 
-      <div className="tabs" style={{ borderBottom: '1px solid var(--line)' }}>
-        <button className="tab" data-active={tab === 'browse'} onClick={() => setTab('browse')}>
+      <div className="subtabs">
+        <button className="subtab" data-active={tab === 'browse'} onClick={() => setTab('browse')}>
           Duyệt clip
         </button>
-        <button className="tab" data-active={tab === 'add'} onClick={() => setTab('add')}>
+        <button className="subtab" data-active={tab === 'add'} onClick={() => setTab('add')}>
           Thêm clip
         </button>
       </div>
@@ -141,7 +143,7 @@ export default function DatasetView() {
           {clips.length === 0 ? (
             <div className="card empty">
               <h3>Kho còn trống</h3>
-              <p className="small">Thêm clip ở tab <strong>Thêm clip</strong>, hoặc bấm <em>Nạp từ corpus</em> để đưa dữ liệu VSL sẵn có vào MinIO.</p>
+              <p className="small">Thêm clip ở tab <strong>Thêm clip</strong>, hoặc bấm <em>Nạp từ corpus</em> nếu máy chủ có sẵn thư mục Dataset.</p>
             </div>
           ) : (
             <div className="grid-auto">
@@ -206,7 +208,8 @@ function StatsStrip({ stats, storage }) {
           <div className="row gap-2">
             <HardDrive size={14} style={{ color: 'var(--ink-3)' }} />
             <span className="small muted">
-              Redis <strong>{storage?.redis?.backend || '?'}</strong> · MinIO <strong>{storage?.object_store?.backend || '?'}</strong>
+              Redis <strong>{storage?.redis?.backend || '?'}</strong> · object store{' '}
+              <strong>{storage?.object_store?.backend || '?'}</strong>
             </span>
           </div>
           <div className="grow" />
@@ -242,7 +245,7 @@ function ClipCard({ clip, onPlay, onDelete, onSplit }) {
         )}
         <span
           className="chip"
-          style={{ position: 'absolute', bottom: 8, right: 8, background: 'rgba(16,18,17,.78)', color: '#fff', borderColor: 'transparent' }}
+          style={{ position: 'absolute', bottom: 8, right: 8, background: 'rgba(13,20,36,.8)', color: '#fff', borderColor: 'transparent' }}
         >
           {formatBytes(clip.size_bytes)}
         </span>
@@ -283,17 +286,25 @@ function PlayerModal({ clip, onClose }) {
       onClick={onClose}
       style={{
         position: 'fixed', inset: 0, zIndex: 200,
-        background: 'rgba(16,18,17,.62)',
+        background: 'rgba(13,20,36,.55)',
+        backdropFilter: 'blur(3px)',
         display: 'grid', placeItems: 'center', padding: 24,
       }}
     >
-      <div className="card rise" style={{ maxWidth: 640, width: '100%' }} onClick={(e) => e.stopPropagation()}>
+      <div className="card rise" style={{ maxWidth: 640, width: '100%', boxShadow: 'var(--shadow-lg)' }} onClick={(e) => e.stopPropagation()}>
         <div className="card-head">
           <h3 className="truncate">{clip.gloss}</h3>
           <div className="grow" />
           <button className="btn btn-quiet btn-sm" onClick={onClose}><X size={14} /></button>
         </div>
-        <video src={mediaUrl(clip.stream_url)} controls autoPlay style={{ width: '100%', background: '#101211' }} />
+        <div className="stage" style={{ borderRadius: 0 }}>
+          <video
+            src={mediaUrl(clip.stream_url)}
+            controls
+            autoPlay
+            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+          />
+        </div>
         <div className="card-pad row gap-2 wrap-row small muted" style={{ padding: '12px 18px' }}>
           <span className="chip">{clip.split}</span>
           <span className="chip">{clip.source}</span>

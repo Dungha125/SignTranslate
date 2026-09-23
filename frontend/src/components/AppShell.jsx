@@ -1,19 +1,19 @@
 import { useEffect, useState } from 'react'
-import { Moon, Sun, Monitor, LogOut, Wifi, WifiOff } from 'lucide-react'
-import { useTheme } from '../contexts/ThemeContext'
+import {
+  BarChart3, BookOpen, Database, History, LogOut, Sparkles, UserPlus, Wand2,
+} from 'lucide-react'
 import { getHealth } from '../lib/api'
 
-const TABS = [
-  { id: 'translate', label: 'Dịch' },
-  { id: 'dataset', label: 'Kho dữ liệu' },
-  { id: 'insights', label: 'Thống kê' },
-  { id: 'history', label: 'Lịch sử' },
-  { id: 'enroll', label: 'Enroll' },
-  { id: 'learn', label: 'Học từ mới' },
+export const TABS = [
+  { id: 'translate', label: 'Dịch', icon: Wand2 },
+  { id: 'library', label: 'Từ vựng', icon: BookOpen },
+  { id: 'enroll', label: 'Cá nhân hoá', icon: UserPlus },
+  { id: 'dataset', label: 'Kho dữ liệu', icon: Database },
+  { id: 'history', label: 'Lịch sử', icon: History },
+  { id: 'insights', label: 'Thống kê', icon: BarChart3 },
 ]
 
 export default function AppShell({ tab, onTab, user, onLogout, children }) {
-  const { mode, cycle } = useTheme()
   const [health, setHealth] = useState(null)
 
   useEffect(() => {
@@ -44,37 +44,35 @@ export default function AppShell({ tab, onTab, user, onLogout, children }) {
     return () => window.removeEventListener('keydown', onKey)
   }, [onTab])
 
-  const online = health?.status === 'ok'
-  const modelOk = online && health?.model_loaded
-  const ThemeIcon = mode === 'dark' ? Moon : mode === 'light' ? Sun : Monitor
-
   return (
     <div className="shell">
       <header
         style={{
           borderBottom: '1px solid var(--line)',
-          background: 'var(--surface)',
+          background: 'rgba(255,255,255,.86)',
+          backdropFilter: 'blur(10px)',
           position: 'sticky',
           top: 0,
           zIndex: 50,
         }}
       >
-        <div className="wrap row gap-4" style={{ height: 60 }}>
+        <div className="wrap row gap-4" style={{ height: 62 }}>
           <div className="row gap-3">
-            <div className="brandmark">S</div>
+            <div className="brandmark"><Sparkles size={17} strokeWidth={2.2} /></div>
             <div>
               <div
                 style={{
                   fontFamily: 'var(--font-display)',
-                  fontSize: '1.08rem',
-                  fontWeight: 600,
+                  fontSize: '1.05rem',
+                  fontWeight: 700,
+                  letterSpacing: '-.02em',
                   lineHeight: 1.15,
                   whiteSpace: 'nowrap',
                 }}
               >
                 SignTranslate
               </div>
-              <div className="eyebrow brand-sub" style={{ fontSize: '.62rem', whiteSpace: 'nowrap' }}>
+              <div className="eyebrow brand-sub" style={{ fontSize: '.6rem', whiteSpace: 'nowrap' }}>
                 Ngôn ngữ ký hiệu Việt
               </div>
             </div>
@@ -82,15 +80,11 @@ export default function AppShell({ tab, onTab, user, onLogout, children }) {
 
           <div className="grow" />
 
-          <StatusPill health={health} online={online} modelOk={modelOk} />
-
-          <button className="btn btn-quiet" onClick={cycle} title={`Giao diện: ${mode}`} aria-label="Đổi giao diện">
-            <ThemeIcon size={16} />
-          </button>
+          <StatusPill health={health} />
 
           {user && (
             <div className="row gap-2">
-              <span className="small muted" style={{ fontWeight: 500 }}>{user.username}</span>
+              <span className="small muted hide-narrow" style={{ fontWeight: 500 }}>{user.username}</span>
               <button className="btn btn-quiet" onClick={onLogout} title="Đăng xuất" aria-label="Đăng xuất">
                 <LogOut size={15} />
               </button>
@@ -98,8 +92,8 @@ export default function AppShell({ tab, onTab, user, onLogout, children }) {
           )}
         </div>
 
-        <div className="wrap">
-          <nav className="tabs" style={{ borderTop: '1px solid var(--line)' }}>
+        <div className="wrap" style={{ paddingBottom: 12 }}>
+          <nav className="tabs">
             {TABS.map((t, i) => (
               <button
                 key={t.id}
@@ -108,6 +102,7 @@ export default function AppShell({ tab, onTab, user, onLogout, children }) {
                 onClick={() => onTab(t.id)}
                 title={`Alt+${i + 1}`}
               >
+                <t.icon size={14} strokeWidth={2} />
                 {t.label}
               </button>
             ))}
@@ -121,9 +116,7 @@ export default function AppShell({ tab, onTab, user, onLogout, children }) {
 
       <footer style={{ borderTop: '1px solid var(--line)', padding: '16px 0', background: 'var(--surface)' }}>
         <div className="wrap row gap-4 wrap-row">
-          <span className="tiny dim">
-            LT-SignDiff · MediaPipe Holistic · Redis + MinIO
-          </span>
+          <span className="tiny dim">LT-SignDiff v2 · MediaPipe Holistic · FastAPI + Redis</span>
           <div className="grow" />
           <span className="tiny dim">
             Chuyển tab bằng <kbd>Alt</kbd>+<kbd>1</kbd>…<kbd>6</kbd>
@@ -134,37 +127,27 @@ export default function AppShell({ tab, onTab, user, onLogout, children }) {
   )
 }
 
-function StatusPill({ health, online, modelOk }) {
-  const store = health?.storage
+function StatusPill({ health }) {
   // `health === null` là "chưa kiểm tra xong", không phải "backend chết" —
   // báo đỏ ngay lúc mới tải trang là báo sai.
   const checking = health == null
+  const online = health?.status === 'ok'
+  const modelOk = online && health?.model_loaded
+
   const tone = checking ? '' : !online ? 'chip-rose' : !modelOk ? 'chip-amber' : 'chip-accent'
-  const dot = checking ? '' : !online ? 'dot-bad' : !modelOk ? 'dot-warn' : 'dot-ok dot-live'
+  const dot = checking ? 'dot-warn' : !online ? 'dot-bad' : !modelOk ? 'dot-warn' : 'dot-ok dot-live'
   const label = checking
     ? 'Đang kiểm tra…'
     : !online
       ? 'Backend chưa phản hồi'
       : !modelOk
         ? 'Model chưa nạp'
-        : `${health.display_name} · ${health.num_classes} từ`
+        : `${health.num_classes} từ`
 
   return (
-    <div className="row gap-2">
-      <span className={`chip ${tone}`} title={health?.ckpt_path || ''}>
-        <span className={`dot ${dot || 'dot-warn'}`} style={checking ? { opacity: 0.4 } : undefined} />
-        {label}
-      </span>
-      {store && (
-        <span
-          className="chip hide-narrow"
-          title={`Redis: ${store.redis} · Object store: ${store.object_store}`}
-          style={{ whiteSpace: 'nowrap' }}
-        >
-          {store.redis_ok && store.object_store_ok ? <Wifi size={12} /> : <WifiOff size={12} />}
-          {store.redis_ok ? 'redis' : 'ram'} · {store.object_store_ok ? 'minio' : 'local'}
-        </span>
-      )}
-    </div>
+    <span className={`chip ${tone}`} title={health?.ckpt_path || ''}>
+      <span className={`dot ${dot}`} style={checking ? { opacity: 0.4 } : undefined} />
+      {label}
+    </span>
   )
 }

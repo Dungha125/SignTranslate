@@ -83,8 +83,8 @@ export default function EnrollTab({ modelId }) {
   return (
     <>
       <PageHead
-        title="Enroll gallery"
-        sub="Ghi 2–3 mẫu cho mỗi từ bằng chính webcam và ánh sáng bạn sẽ dùng. Các mẫu này vào thẳng gallery kNN nên có tác dụng ngay, không cần huấn luyện lại."
+        title="Cá nhân hoá nhận dạng"
+        sub="Ghi 2–3 mẫu cho mỗi từ bằng chính webcam và ánh sáng bạn sẽ dùng. Mẫu vào thẳng gallery kNN nên có tác dụng ngay, không cần huấn luyện lại model."
         action={
           <button className="btn btn-ghost btn-sm" onClick={rebuild} disabled={busy}>
             <RefreshCw size={13} /> Dựng lại từ train+val

@@ -37,7 +37,9 @@ INDEX_CAP = 20000
 _JOURNAL = storage.LOCAL_FALLBACK_DIR / "dataset_index.jsonl"
 
 SPLITS = ("train", "val", "test", "unassigned")
-SOURCES = ("upload", "webcam", "corpus", "enroll")
+# `library` là clip mẫu để người học xem, không dùng để huấn luyện — vì vậy nó
+# nằm cùng kho nhưng luôn ở split `unassigned` và bị loại khỏi export CSV.
+SOURCES = ("upload", "webcam", "corpus", "enroll", "library")
 
 # Số clip tối thiểu nên có cho mỗi từ. Đo được từ tập Top-200: độ chính xác
 # nhảy bậc từ ~69 % (≤3 clip) lên 97 % (≥4 clip).
@@ -241,7 +243,14 @@ def list_clips(
     query: str = "",
     limit: int = 60,
     offset: int = 0,
+    include_library: bool = False,
 ) -> dict:
+    """Duyệt clip huấn luyện.
+
+    Clip của kho từ vựng (`source="library"`) bị ẩn mặc định để tab Kho dữ liệu
+    chỉ hiển thị dữ liệu thật sự dùng để huấn luyện; truyền `source="library"`
+    hoặc `include_library=True` khi muốn lấy chúng.
+    """
     if gloss:
         ids: Iterable[str] = sorted(kv.smembers(_gloss_key(gloss)))
     else:
@@ -253,6 +262,8 @@ def list_clips(
         if split and rec.get("split") != split:
             continue
         if source and rec.get("source") != source:
+            continue
+        if not source and not include_library and rec.get("source") == "library":
             continue
         if q and q not in str(rec.get("gloss", "")).lower() and q not in str(rec.get("filename", "")).lower():
             continue
@@ -287,6 +298,8 @@ def stats(ttl: int = 60) -> dict:
     total_bytes = 0
     n = 0
     for rec in get_clips(list(dict.fromkeys(ids))):
+        if rec.get("source") == "library":
+            continue        # clip mẫu để học, không thuộc dữ liệu huấn luyện
         n += 1
         total_bytes += int(rec.get("size_bytes") or 0)
         by_split[rec.get("split", "unassigned")] = by_split.get(rec.get("split", "unassigned"), 0) + 1
@@ -323,6 +336,8 @@ def export_csv() -> str:
     lines = ["video,label,split"]
     ids = list(dict.fromkeys(kv.history(INDEX_KEY, limit=INDEX_CAP)))
     for rec in get_clips(ids):
+        if rec.get("source") == "library":
+            continue
         name = str(rec.get("filename", rec.get("clip_id", ""))).replace(",", "_")
         label = str(rec.get("gloss", "")).replace(",", " ")
         lines.append(f"{name},{label},{rec.get('split', 'unassigned')}")

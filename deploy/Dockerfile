@@ -25,7 +25,6 @@ RUN pip install --no-cache-dir -r requirements-prod.txt \
     && python -c "import cv2, numpy, mediapipe, torch; print(cv2.__version__, numpy.__version__, torch.__version__)"
 
 COPY LT_SignDiff /app/LT_SignDiff
-COPY vsl_hsp_bimamba_k4 /app/vsl_hsp_bimamba_k4
 COPY sign_translate/backend /app/sign_translate/backend
 
 EXPOSE 8000

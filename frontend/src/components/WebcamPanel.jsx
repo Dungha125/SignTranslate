@@ -46,19 +46,9 @@ export default function WebcamPanel({
           </p>
         )}
 
-        <div
-          style={{
-            position: 'relative',
-            aspectRatio: '4 / 3',
-            borderRadius: 'var(--r-md)',
-            overflow: 'hidden',
-            background: '#101211',
-            display: 'grid',
-            placeItems: 'center',
-          }}
-        >
+        <div className="stage">
           {state === 'idle' && (
-            <div className="stack gap-2" style={{ alignItems: 'center', color: '#8e918a' }}>
+            <div className="stack gap-2" style={{ alignItems: 'center', color: '#7d8ba6' }}>
               <Camera size={30} strokeWidth={1.4} />
               <span className="small">Camera chưa bật</span>
             </div>
@@ -83,10 +73,10 @@ export default function WebcamPanel({
                 inset: 0,
                 display: 'grid',
                 placeItems: 'center',
-                background: 'rgba(16,18,17,.55)',
+                background: 'rgba(13,20,36,.6)',
               }}
             >
-              <span style={{ fontFamily: 'var(--font-display)', fontSize: 84, color: '#fff', fontWeight: 500 }}>
+              <span style={{ fontFamily: 'var(--font-display)', fontSize: 84, color: '#fff', fontWeight: 700 }}>
                 {countdown}
               </span>
             </div>
@@ -99,7 +89,7 @@ export default function WebcamPanel({
                 position: 'absolute',
                 top: 10,
                 right: 10,
-                background: enough ? 'rgba(31,95,78,.9)' : 'rgba(154,91,18,.9)',
+                background: enough ? 'rgba(4,120,87,.92)' : 'rgba(180,83,9,.92)',
                 color: '#fff',
                 borderColor: 'transparent',
               }}
@@ -123,7 +113,7 @@ export default function WebcamPanel({
                 style={{
                   height: '100%',
                   width: `${(count / maxFrames) * 100}%`,
-                  background: '#e0655a',
+                  background: '#f87171',
                   transition: 'width .1s linear',
                 }}
               />

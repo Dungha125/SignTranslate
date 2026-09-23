@@ -54,20 +54,13 @@ export default function HistoryView() {
       {note && <p className="small" style={{ color: 'var(--rose)' }}>{note}</p>}
 
       <div className="row gap-2">
-        {[['all', 'Tất cả'], ['unrated', 'Chưa đánh giá'], ['wrong', 'Bị sai']].map(([id, label]) => (
-          <button
-            key={id}
-            className="btn btn-sm"
-            onClick={() => setFilter(id)}
-            style={{
-              border: `1px solid ${filter === id ? 'var(--accent)' : 'var(--line)'}`,
-              background: filter === id ? 'var(--accent-soft)' : 'var(--surface)',
-              color: filter === id ? 'var(--accent-ink)' : 'var(--ink-2)',
-            }}
-          >
-            {label}
-          </button>
-        ))}
+        <div className="subtabs">
+          {[['all', 'Tất cả'], ['unrated', 'Chưa đánh giá'], ['wrong', 'Bị sai']].map(([id, label]) => (
+            <button key={id} className="subtab" data-active={filter === id} onClick={() => setFilter(id)}>
+              {label}
+            </button>
+          ))}
+        </div>
         <div className="grow" />
         <span className="small dim mono">{shown.length}/{entries.length}</span>
       </div>
@@ -95,7 +88,9 @@ function Row({ entry, onRate }) {
     <article className="card card-pad">
       <div className="row gap-3 wrap-row">
         <div style={{ minWidth: 150 }}>
-          <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.2rem' }}>{entry.top_gloss || '—'}</div>
+          <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.1rem', fontWeight: 700, letterSpacing: '-.02em' }}>
+            {entry.top_gloss || '—'}
+          </div>
           <div className="tiny dim mono">{(entry.top_score * 100).toFixed(1)}%</div>
         </div>
 

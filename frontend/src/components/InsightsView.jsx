@@ -156,21 +156,26 @@ export default function InsightsView() {
 
       <div className="grid-2">
         <section className="card">
-          <div className="card-head"><h3>Model đã dùng</h3></div>
+          <div className="card-head"><h3>Nguồn đầu vào</h3></div>
           <div className="card-body">
-            {ov.models.length ? (
-              <table className="table">
-                <thead><tr><th>Model</th><th style={{ textAlign: 'right' }}>Lượt</th><th style={{ textAlign: 'right' }}>Trung bình</th></tr></thead>
-                <tbody>
-                  {ov.models.map((m) => (
-                    <tr key={m.model_id}>
-                      <td>{m.display_name}</td>
-                      <td className="mono" style={{ textAlign: 'right' }}>{m.count}</td>
-                      <td className="mono" style={{ textAlign: 'right' }}>{m.avg_ms} ms</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            {Object.keys(ov.by_source || {}).length ? (
+              <div className="stack gap-2">
+                {Object.entries(ov.by_source).map(([src, n]) => {
+                  const max = Math.max(...Object.values(ov.by_source), 1)
+                  return (
+                    <div key={src} className="row gap-3">
+                      <span className="small" style={{ minWidth: 90 }}>{src}</span>
+                      <div className="grow"><div className="meter"><i style={{ width: `${(n / max) * 100}%` }} /></div></div>
+                      <span className="mono tiny dim" style={{ width: 28, textAlign: 'right' }}>{n}</span>
+                    </div>
+                  )
+                })}
+                {ov.models.map((m) => (
+                  <p key={m.model_id} className="tiny dim" style={{ marginTop: 6 }}>
+                    {m.display_name}: {m.count} lượt · trung bình <span className="mono">{m.avg_ms} ms</span>
+                  </p>
+                ))}
+              </div>
             ) : <p className="small dim">Chưa có dữ liệu.</p>}
           </div>
         </section>
@@ -195,19 +200,27 @@ export default function InsightsView() {
               }
             />
             <InfraRow
-              name="MinIO"
-              ok={storage?.object_store?.available}
+              name="Object store"
+              // Chế độ local cũng là trạng thái hợp lệ (production cố tình không chạy MinIO).
+              ok={storage?.object_store?.available || storage?.object_store?.backend === 'local'}
               detail={
                 storage?.object_store?.available
                   ? Object.entries(storage.object_store.usage || {})
                       .map(([b, u]) => `${b}: ${u.objects} obj / ${formatBytes(u.bytes)}`)
                       .join(' · ')
-                  : storage?.object_store?.error || 'Đang lưu xuống đĩa cục bộ'
+                  : storage?.object_store?.error || 'Lưu trực tiếp xuống đĩa máy chủ'
               }
             />
             {!storage?.redis?.available && (
               <p className="tiny dim">
-                Bật hạ tầng: <code className="mono">docker compose -f sign_translate/docker-compose.yml up -d</code>
+                Redis đang tắt nên phiên đăng nhập và tiến độ học chỉ nằm trong RAM của tiến trình.
+                Bật lại bằng <code>docker compose up -d redis</code>.
+              </p>
+            )}
+            {storage?.object_store?.backend === 'local' && (
+              <p className="tiny dim">
+                Đang lưu video xuống đĩa máy chủ (<code>{storage.object_store.local_dir}</code>) thay vì MinIO —
+                đúng như cấu hình production để tiết kiệm RAM.
               </p>
             )}
           </div>
